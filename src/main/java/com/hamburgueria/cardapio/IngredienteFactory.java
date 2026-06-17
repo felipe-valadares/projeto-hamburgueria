@@ -16,6 +16,7 @@ public final class IngredienteFactory {
         registrar("Queijo Cheddar", "2.00", 110, false);
         registrar("Queijo Prato", "1.80", 90, false);
         registrar("Bacon", "3.00", 130, false);
+        registrar("Ovo Frito", "2.00", 90, false);
         registrar("Alface", "0.50", 5, true);
         registrar("Tomate", "0.50", 8, true);
         registrar("Cebola Caramelizada", "1.20", 60, true);
