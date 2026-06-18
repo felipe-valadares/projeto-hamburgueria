@@ -1,6 +1,9 @@
 package com.hamburgueria.pedido;
 
 import com.hamburgueria.infraestrutura.GeradorId;
+import com.hamburgueria.pedido.estado.EstadoPedido;
+import com.hamburgueria.pedido.estado.PedidoRecebido;
+import com.hamburgueria.pedido.evento.ObservadorPedido;
 import com.hamburgueria.pessoa.Cliente;
 
 import java.math.BigDecimal;
@@ -16,6 +19,8 @@ public class Pedido implements Cloneable {
     private final TipoEntrega tipoEntrega;
     private final List<ItemPedido> itens;
     private final LocalDateTime momento;
+    private final List<ObservadorPedido> observadores = new ArrayList<>();
+    private EstadoPedido estado = new PedidoRecebido();
 
     public Pedido(Cliente cliente, TipoEntrega tipoEntrega, List<ItemPedido> itens) {
         this.id = GeradorId.proximo();
@@ -56,6 +61,33 @@ public class Pedido implements Cloneable {
         return itens.stream()
                 .map(ItemPedido::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public StatusPedido getStatus() {
+        return estado.getStatus();
+    }
+
+    public void avancar() {
+        estado.avancar(this);
+    }
+
+    public void cancelar() {
+        estado.cancelar(this);
+    }
+
+    public void transitarPara(EstadoPedido novoEstado) {
+        this.estado = novoEstado;
+        notificarObservadores();
+    }
+
+    public void registrarObservador(ObservadorPedido observador) {
+        observadores.add(observador);
+    }
+
+    private void notificarObservadores() {
+        for (ObservadorPedido observador : observadores) {
+            observador.statusAtualizado(this);
+        }
     }
 
     public Pedido repetir() {
