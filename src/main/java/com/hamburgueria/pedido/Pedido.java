@@ -67,6 +67,10 @@ public class Pedido implements Cloneable {
         return estado.getStatus();
     }
 
+    public EstadoPedido getEstado() {
+        return estado;
+    }
+
     public void avancar() {
         estado.avancar(this);
     }

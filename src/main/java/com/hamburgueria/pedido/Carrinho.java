@@ -41,6 +41,15 @@ public class Carrinho {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    public MementoCarrinho salvar() {
+        return new MementoCarrinho(itens);
+    }
+
+    public void restaurar(MementoCarrinho memento) {
+        itens.clear();
+        itens.addAll(memento.getItens());
+    }
+
     public Pedido fecharPedido(Cliente cliente, TipoEntrega tipoEntrega) {
         if (isVazio()) {
             throw new CarrinhoVazioException();
