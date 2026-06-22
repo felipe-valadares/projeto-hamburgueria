@@ -1,0 +1,23 @@
+@startuml estado-producao
+
+' Fluxo de preparo na cozinha (padrao Template Method em
+' com.hamburgueria.producao.preparo.PreparoProduto).
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+[*] --> SeparandoInsumos
+
+SeparandoInsumos --> Processando : insumos separados
+Processando --> Montando : [exigeMontagem]
+Processando --> Finalizando : [bebida / sem montagem]
+Montando --> Finalizando : itens montados
+Finalizando --> [*] : liberado para expedicao
+
+note left of Montando
+  Etapa opcional (gancho exigeMontagem):
+  bebidas pulam a montagem.
+end note
+
+@enduml

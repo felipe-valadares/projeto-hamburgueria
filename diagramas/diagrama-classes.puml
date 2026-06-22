@@ -1,0 +1,628 @@
+@startuml diagrama-classes
+
+' Diagrama de classes consolidado do Sistema de Gestao da Hamburgueria.
+' Notacao UML classica, monocromatica (estilo StarUML).
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+hide empty members
+
+package infraestrutura {
+    class Configuracao <<singleton>> {
+        - {static} instancia : Configuracao
+        - nomeLoja : String
+        - freteBase : BigDecimal
+        - valorPorQuilometro : BigDecimal
+        - pedidoMinimoFreteGratis : BigDecimal
+        - raioEntregaKm : double
+        - Configuracao()
+        + {static} getInstancia() : Configuracao
+        + estaAberta(horario) : boolean
+    }
+    class GeradorId {
+        + {static} proximo() : long
+    }
+}
+
+package pessoa {
+    interface Pessoa {
+        + getNome() : String
+        + aceitar(visitante : VisitantePessoa)
+    }
+    interface VisitantePessoa {
+        + visitar(cliente : Cliente)
+        + visitar(funcionario : Funcionario)
+        + visitar(fornecedor : Fornecedor)
+    }
+    class Cliente {
+        - nome : String
+        - telefone : String
+        - email : String
+    }
+    class Funcionario {
+        - nome : String
+        - cargo : String
+        - matricula : String
+        - salario : BigDecimal
+    }
+    class Fornecedor {
+        - razaoSocial : String
+        - cnpj : String
+        - insumoFornecido : String
+    }
+    class Endereco {
+        - logradouro : String
+        - numero : String
+        - bairro : String
+        - distanciaKm : double
+    }
+
+    Pessoa <|.. Cliente
+    Pessoa <|.. Funcionario
+    Pessoa <|.. Fornecedor
+    Cliente o--> Endereco
+    Pessoa ..> VisitantePessoa
+}
+
+package cardapio {
+    interface ItemCardapio {
+        + getNome() : String
+        + getPreco() : BigDecimal
+        + getCalorias() : int
+        + getDescricao() : String
+    }
+    class Ingrediente <<flyweight>> {
+        - nome : String
+        - preco : BigDecimal
+        - calorias : int
+        - vegano : boolean
+    }
+    class IngredienteFactory <<flyweight factory>> {
+        - {static} CATALOGO : Map
+        + {static} obter(nome) : Ingrediente
+        + {static} registrar(...) : Ingrediente
+    }
+    abstract class Produto {
+        - nome : String
+        - preco : BigDecimal
+        - calorias : int
+    }
+    class Bebida {
+        - mililitros : int
+        - alcoolica : boolean
+    }
+    class Acompanhamento
+    class Sobremesa
+    class Categoria <<composite>> {
+        - nome : String
+        - itens : List<ItemCardapio>
+        + adicionar(item) : Categoria
+        + remover(item)
+        + getItens() : List<ItemCardapio>
+    }
+
+    ItemCardapio <|.. Produto
+    ItemCardapio <|.. Categoria
+    Produto <|-- Bebida
+    Produto <|-- Acompanhamento
+    Produto <|-- Sobremesa
+    Categoria o--> "*" ItemCardapio
+    IngredienteFactory ..> Ingrediente
+}
+
+package "cardapio.montagem" {
+    enum PontoCarne {
+        MAL_PASSADO
+        AO_PONTO
+        BEM_PASSADO
+        NAO_SE_APLICA
+    }
+    class Hamburguer {
+        - ponto : PontoCarne
+        - ingredientes : List<Ingrediente>
+    }
+    class HamburguerBuilder <<builder>> {
+        - nome : String
+        - ponto : PontoCarne
+        - ingredientes : List<Ingrediente>
+        + comPao(pao) : HamburguerBuilder
+        + comProteina(proteina) : HamburguerBuilder
+        + adicionar(ingrediente) : HamburguerBuilder
+        + noPonto(ponto) : HamburguerBuilder
+        + construir() : Hamburguer
+    }
+    abstract class AdicionalDecorator <<decorator>> {
+        - item : ItemCardapio
+        - adicional : Ingrediente
+    }
+    class BaconExtra
+    class CheddarExtra
+    class OvoExtra
+
+    Produto <|-- Hamburguer
+    Hamburguer o--> "*" Ingrediente
+    Hamburguer --> PontoCarne
+    HamburguerBuilder ..> Hamburguer
+    HamburguerBuilder ..> IngredienteFactory
+    ItemCardapio <|.. AdicionalDecorator
+    AdicionalDecorator o--> ItemCardapio
+    AdicionalDecorator <|-- BaconExtra
+    AdicionalDecorator <|-- CheddarExtra
+    AdicionalDecorator <|-- OvoExtra
+}
+
+package "cardapio.combo" {
+    interface FabricaCombo <<abstract factory>> {
+        + criarLanche() : Hamburguer
+        + criarBebida() : Bebida
+        + criarAcompanhamento() : Acompanhamento
+        + montar() : Combo
+    }
+    class Combo {
+        - lanche : Hamburguer
+        - bebida : Bebida
+        - acompanhamento : Acompanhamento
+    }
+    class FabricaComboInfantil
+    class FabricaComboAdulto
+    class FabricaComboVegano
+
+    Produto <|-- Combo
+    Combo *--> Hamburguer
+    Combo *--> Bebida
+    Combo *--> Acompanhamento
+    FabricaCombo <|.. FabricaComboInfantil
+    FabricaCombo <|.. FabricaComboAdulto
+    FabricaCombo <|.. FabricaComboVegano
+    FabricaCombo ..> Combo
+}
+
+package pedido {
+    enum TipoEntrega {
+        DELIVERY
+        RETIRADA
+        DRIVE_THRU
+        BALCAO
+    }
+    enum StatusPedido {
+        RECEBIDO
+        EM_PREPARO
+        PRONTO
+        SAIU_PARA_ENTREGA
+        ENTREGUE
+        CANCELADO
+    }
+    class ItemPedido {
+        - quantidade : int
+        + getSubtotal() : BigDecimal
+        + copiar() : ItemPedido
+    }
+    class Carrinho {
+        - itens : List<ItemPedido>
+        + adicionar(item)
+        + getSubtotal() : BigDecimal
+        + salvar() : MementoCarrinho
+        + restaurar(memento)
+        + fecharPedido(cliente, tipo) : Pedido
+    }
+    class Pedido <<originator, subject, context, prototype>> {
+        - id : long
+        - itens : List<ItemPedido>
+        - estado : EstadoPedido
+        - observadores : List<ObservadorPedido>
+        + avancar()
+        + cancelar()
+        + transitarPara(estado)
+        + registrarObservador(obs)
+        + getStatus() : StatusPedido
+        + repetir() : Pedido
+        + clone() : Pedido
+    }
+    class MementoCarrinho <<memento>> {
+        - itens : List<ItemPedido>
+    }
+    class HistoricoCarrinho <<caretaker>> {
+        - estados : Deque<MementoCarrinho>
+        + salvar(carrinho)
+        + desfazer(carrinho)
+    }
+
+    Carrinho o--> "*" ItemPedido
+    Carrinho ..> Pedido
+    Carrinho ..> MementoCarrinho
+    HistoricoCarrinho o--> "*" MementoCarrinho
+    MementoCarrinho o--> "*" ItemPedido
+    Pedido o--> "*" ItemPedido
+    Pedido --> TipoEntrega
+    Pedido --> Cliente
+    ItemPedido --> ItemCardapio
+}
+
+package "pedido.estado" {
+    interface EstadoPedido <<state>> {
+        + getStatus() : StatusPedido
+        + avancar(pedido : Pedido)
+        + cancelar(pedido : Pedido)
+    }
+    class PedidoRecebido
+    class PedidoEmPreparo
+    class PedidoPronto
+    class PedidoSaiuParaEntrega
+    class PedidoEntregue
+    class PedidoCancelado
+
+    EstadoPedido <|.. PedidoRecebido
+    EstadoPedido <|.. PedidoEmPreparo
+    EstadoPedido <|.. PedidoPronto
+    EstadoPedido <|.. PedidoSaiuParaEntrega
+    EstadoPedido <|.. PedidoEntregue
+    EstadoPedido <|.. PedidoCancelado
+    Pedido o--> EstadoPedido
+    EstadoPedido ..> Pedido
+}
+
+package "pedido.evento" {
+    interface ObservadorPedido <<observer>> {
+        + statusAtualizado(pedido : Pedido)
+    }
+    class HistoricoStatus {
+        - transicoes : List<StatusPedido>
+    }
+
+    ObservadorPedido <|.. HistoricoStatus
+    Pedido o--> "*" ObservadorPedido
+}
+
+package "pedido.comando" {
+    interface Comando <<command>> {
+        + executar()
+        + desfazer()
+    }
+    class AvancarPedidoComando {
+        - estadoAnterior : EstadoPedido
+    }
+    class CancelarPedidoComando {
+        - estadoAnterior : EstadoPedido
+    }
+    class PainelComandos <<invoker>> {
+        - fila : Queue<Comando>
+        - executados : Deque<Comando>
+        + enfileirar(comando)
+        + processarFila()
+        + desfazerUltimo()
+    }
+
+    Comando <|.. AvancarPedidoComando
+    Comando <|.. CancelarPedidoComando
+    PainelComandos o--> "*" Comando
+    AvancarPedidoComando --> Pedido
+    CancelarPedidoComando --> Pedido
+}
+
+package producao {
+    class FilaProducao <<aggregate>> {
+        - pedidos : List<Pedido>
+        + inserir(pedido)
+        + iterator() : Iterator<Pedido>
+    }
+    class IteradorPorPrioridade <<iterator>> {
+        - ordenados : List<Pedido>
+        - posicao : int
+        + hasNext() : boolean
+        + next() : Pedido
+    }
+
+    FilaProducao o--> "*" Pedido
+    FilaProducao ..> IteradorPorPrioridade
+    IteradorPorPrioridade --> Pedido
+}
+
+package "producao.preparo" {
+    abstract class PreparoProduto <<template method>> {
+        + preparar() : List<String>
+        + {abstract} tempoEstimadoMinutos() : int
+        # {abstract} separarInsumos() : String
+        # {abstract} processar() : String
+        # exigeMontagem() : boolean
+        # montar() : String
+        # finalizar() : String
+    }
+    class PreparoHamburguer
+    class PreparoBebida
+    class PreparoAcompanhamento
+
+    PreparoProduto <|-- PreparoHamburguer
+    PreparoProduto <|-- PreparoBebida
+    PreparoProduto <|-- PreparoAcompanhamento
+}
+
+package promocao {
+    class ContextoPromocao {
+        - subtotal : BigDecimal
+        - quantidadeItens : int
+    }
+    class Cupom {
+        - codigo : String
+        - percentual : BigDecimal
+        + isAplicavel(contexto) : boolean
+        + calcularDesconto(contexto) : BigDecimal
+    }
+    class SolicitacaoDesconto {
+        - valor : BigDecimal
+        - motivo : String
+    }
+    abstract class AprovadorDesconto <<chain of responsibility>> {
+        - proximo : AprovadorDesconto
+        + definirProximo(proximo) : AprovadorDesconto
+        + aprovar(solicitacao) : String
+        # {abstract} podeAprovar(valor) : boolean
+        # {abstract} getCargo() : String
+        + {static} cadeiaPadrao() : AprovadorDesconto
+    }
+    class AprovacaoAtendente
+    class AprovacaoSupervisor
+    class AprovacaoGerente
+    class AprovacaoDono
+
+    AprovadorDesconto <|-- AprovacaoAtendente
+    AprovadorDesconto <|-- AprovacaoSupervisor
+    AprovadorDesconto <|-- AprovacaoGerente
+    AprovadorDesconto <|-- AprovacaoDono
+    AprovadorDesconto o--> AprovadorDesconto
+    AprovadorDesconto ..> SolicitacaoDesconto
+}
+
+package "promocao.regra" {
+    interface ExpressaoRegra <<interpreter>> {
+        + interpretar(contexto : ContextoPromocao) : boolean
+    }
+    class SubtotalMinimo {
+        - minimo : BigDecimal
+    }
+    class QuantidadeMinimaItens {
+        - minimo : int
+    }
+    class RegraE {
+        - esquerda : ExpressaoRegra
+        - direita : ExpressaoRegra
+    }
+    class RegraOu {
+        - esquerda : ExpressaoRegra
+        - direita : ExpressaoRegra
+    }
+
+    ExpressaoRegra <|.. SubtotalMinimo
+    ExpressaoRegra <|.. QuantidadeMinimaItens
+    ExpressaoRegra <|.. RegraE
+    ExpressaoRegra <|.. RegraOu
+    RegraE o--> "2" ExpressaoRegra
+    RegraOu o--> "2" ExpressaoRegra
+    ExpressaoRegra ..> ContextoPromocao
+    Cupom o--> ExpressaoRegra
+}
+
+package pagamento {
+    interface MeioPagamento {
+        + cobrar(valor : BigDecimal) : ComprovantePagamento
+    }
+    enum StatusPagamento {
+        PENDENTE
+        PAGO
+        RECUSADO
+        ESTORNADO
+    }
+    class ComprovantePagamento {
+        - aprovado : boolean
+        - autorizacao : String
+        - valor : BigDecimal
+        - meio : String
+    }
+    class Pagamento {
+        - valor : BigDecimal
+        - status : StatusPagamento
+        + processar() : ComprovantePagamento
+        + estornar()
+    }
+    class PagamentoDinheiro {
+        - valorRecebido : BigDecimal
+        + calcularTroco(valor) : BigDecimal
+    }
+    class PagamentoPix {
+        - chave : String
+    }
+
+    MeioPagamento <|.. PagamentoDinheiro
+    MeioPagamento <|.. PagamentoPix
+    Pagamento o--> MeioPagamento
+    Pagamento --> StatusPagamento
+    Pagamento ..> ComprovantePagamento
+    MeioPagamento ..> ComprovantePagamento
+}
+
+package "pagamento.gateway" {
+    class GatewayPagamentosExterno <<adaptee>> {
+        + autorizar(bandeira, numero, centavos) : RetornoTransacao
+    }
+    class RetornoTransacao {
+        - codigoRetorno : String
+        - idTransacao : String
+    }
+    class GatewayPagamentoAdapter <<adapter>> {
+        - bandeira : String
+        - numeroCartao : String
+        + cobrar(valor) : ComprovantePagamento
+    }
+
+    MeioPagamento <|.. GatewayPagamentoAdapter
+    GatewayPagamentoAdapter o--> GatewayPagamentosExterno
+    GatewayPagamentosExterno ..> RetornoTransacao
+}
+
+package entrega {
+    interface ServicoEntrega <<product>> {
+        + getTipo() : TipoEntrega
+        + prazoEstimadoMinutos() : int
+        + exigeEndereco() : boolean
+        + calcularFrete(pedido) : BigDecimal
+    }
+    class ServicoDelivery
+    class ServicoRetirada
+    class ServicoDriveThru
+    class ServicoBalcao
+    class ServicoEntregaFactory <<factory method>> {
+        + criar(tipo : TipoEntrega) : ServicoEntrega
+    }
+
+    ServicoEntrega <|.. ServicoDelivery
+    ServicoEntrega <|.. ServicoRetirada
+    ServicoEntrega <|.. ServicoDriveThru
+    ServicoEntrega <|.. ServicoBalcao
+    ServicoEntregaFactory ..> ServicoEntrega
+    ServicoEntregaFactory ..> TipoEntrega
+}
+
+package "entrega.frete" {
+    interface CalculoFrete <<strategy>> {
+        + calcular(pedido : Pedido) : BigDecimal
+    }
+    class FreteFixo
+    class FretePorDistancia
+    class FreteCortesia
+    class FreteGratisAcimaDe {
+        - base : CalculoFrete
+    }
+
+    CalculoFrete <|.. FreteFixo
+    CalculoFrete <|.. FretePorDistancia
+    CalculoFrete <|.. FreteCortesia
+    CalculoFrete <|.. FreteGratisAcimaDe
+    FreteGratisAcimaDe o--> CalculoFrete
+    ServicoDelivery o--> CalculoFrete
+    CalculoFrete ..> Pedido
+    FretePorDistancia ..> Configuracao
+}
+
+package notificacao {
+    interface CanalEnvio <<bridge impl>> {
+        + enviar(cliente : Cliente, mensagem : String) : String
+    }
+    class CanalSms
+    class CanalEmail
+    class CanalWhatsApp
+    class CanalPush
+    abstract class Notificacao <<bridge abstraction>> {
+        - canal : CanalEnvio
+        + enviar(pedido : Pedido) : String
+        # {abstract} montarMensagem(pedido) : String
+    }
+    class NotificacaoPedidoConfirmado
+    class NotificacaoPedidoPronto
+    class NotificacaoSaiuParaEntrega
+    class NotificadorCliente {
+        - canal : CanalEnvio
+        - avisosEnviados : List<String>
+    }
+
+    CanalEnvio <|.. CanalSms
+    CanalEnvio <|.. CanalEmail
+    CanalEnvio <|.. CanalWhatsApp
+    CanalEnvio <|.. CanalPush
+    Notificacao o--> CanalEnvio
+    Notificacao <|-- NotificacaoPedidoConfirmado
+    Notificacao <|-- NotificacaoPedidoPronto
+    Notificacao <|-- NotificacaoSaiuParaEntrega
+    ObservadorPedido <|.. NotificadorCliente
+    NotificadorCliente o--> CanalEnvio
+    NotificadorCliente ..> Notificacao
+    Notificacao ..> Cliente
+}
+
+package operacao {
+    enum EventoOperacao {
+        PEDIDO_PRONTO
+        PEDIDO_DESPACHADO
+    }
+    interface MediadorOperacao <<mediator>> {
+        + notificar(origem, pedido, evento)
+    }
+    abstract class SetorOperacao <<colleague>> {
+        # mediador : MediadorOperacao
+        + definirMediador(mediador)
+    }
+    class Cozinha {
+        + preparar(pedido)
+    }
+    class Expedicao {
+        + despachar(pedido)
+    }
+    class AtendimentoCliente {
+        - canal : CanalEnvio
+        - avisos : List<String>
+        + avisarPronto(pedido)
+        + avisarSaiuParaEntrega(pedido)
+    }
+    class CentralOperacoes {
+        + processar(pedido)
+        + getAvisos() : List<String>
+    }
+    class AtendimentoFacade <<facade>> {
+        + realizarPedido(cliente, carrinho, tipo, meio) : ResumoAtendimento
+    }
+    class ResumoAtendimento {
+        - pedidoId : long
+        - subtotal : BigDecimal
+        - frete : BigDecimal
+        - total : BigDecimal
+        - statusPagamento : StatusPagamento
+        - statusPedido : StatusPedido
+    }
+
+    MediadorOperacao <|.. CentralOperacoes
+    SetorOperacao <|-- Cozinha
+    SetorOperacao <|-- Expedicao
+    SetorOperacao <|-- AtendimentoCliente
+    SetorOperacao o--> MediadorOperacao
+    CentralOperacoes *--> Cozinha
+    CentralOperacoes *--> Expedicao
+    CentralOperacoes *--> AtendimentoCliente
+    CentralOperacoes ..> Pedido
+    AtendimentoCliente o--> CanalEnvio
+    AtendimentoFacade ..> CentralOperacoes
+    AtendimentoFacade ..> ServicoEntregaFactory
+    AtendimentoFacade ..> Pagamento
+    AtendimentoFacade ..> Carrinho
+    AtendimentoFacade ..> ResumoAtendimento
+}
+
+package relatorio {
+    interface RelatorioGerencial {
+        + gerar() : String
+    }
+    class RelatorioFaturamento <<real subject>> {
+        - vendas : List<BigDecimal>
+        - execucoes : int
+    }
+    class RelatorioGerencialProxy <<proxy>> {
+        - cargo : String
+        - cache : String
+    }
+    class RelatorioContatos <<visitor>> {
+        - linhas : List<String>
+    }
+    class RelatorioFolhaPagamento <<visitor>> {
+        - total : BigDecimal
+        - funcionarios : int
+    }
+
+    RelatorioGerencial <|.. RelatorioFaturamento
+    RelatorioGerencial <|.. RelatorioGerencialProxy
+    RelatorioGerencialProxy o--> RelatorioGerencial
+    VisitantePessoa <|.. RelatorioContatos
+    VisitantePessoa <|.. RelatorioFolhaPagamento
+}
+
+@enduml

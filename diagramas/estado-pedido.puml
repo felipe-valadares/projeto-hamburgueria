@@ -1,0 +1,31 @@
+@startuml estado-pedido
+
+' Ciclo de vida do pedido (padrao State em com.hamburgueria.pedido.estado).
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+[*] --> Recebido
+
+Recebido --> EmPreparo : avancar()
+Recebido --> Cancelado : cancelar()
+
+EmPreparo --> Pronto : avancar()
+EmPreparo --> Cancelado : cancelar()
+
+Pronto --> SaiuParaEntrega : avancar() [delivery]
+Pronto --> Entregue : avancar() [retirada / balcao / drive-thru]
+Pronto --> Cancelado : cancelar()
+
+SaiuParaEntrega --> Entregue : avancar()
+
+Entregue --> [*]
+Cancelado --> [*]
+
+note right of SaiuParaEntrega
+  A partir daqui o pedido
+  nao pode mais ser cancelado.
+end note
+
+@enduml

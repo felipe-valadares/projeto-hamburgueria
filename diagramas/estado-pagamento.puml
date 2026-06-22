@@ -1,0 +1,25 @@
+@startuml estado-pagamento
+
+' Ciclo de vida do pagamento (com.hamburgueria.pagamento.StatusPagamento).
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+[*] --> Pendente
+
+Pendente --> Pago : processar() [autorizado]
+Pendente --> Recusado : processar() [negado]
+
+Pago --> Estornado : estornar()
+
+Pago --> [*]
+Recusado --> [*]
+Estornado --> [*]
+
+note right of Recusado
+  Pedido nao entra em producao
+  enquanto o pagamento nao for aprovado.
+end note
+
+@enduml

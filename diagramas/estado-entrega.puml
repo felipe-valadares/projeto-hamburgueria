@@ -1,0 +1,19 @@
+@startuml estado-entrega
+
+' Fluxo de expedicao e entrega coordenado pela CentralOperacoes (Mediator).
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+[*] --> AguardandoDespacho : pedido pronto
+
+AguardandoDespacho --> EmRota : despachar() [delivery]
+AguardandoDespacho --> AguardandoRetirada : [retirada / balcao / drive-thru]
+
+EmRota --> Entregue : entregue ao cliente
+AguardandoRetirada --> Entregue : retirado pelo cliente
+
+Entregue --> [*]
+
+@enduml
