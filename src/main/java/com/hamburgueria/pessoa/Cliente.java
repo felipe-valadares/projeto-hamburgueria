@@ -1,6 +1,6 @@
 package com.hamburgueria.pessoa;
 
-public class Cliente {
+public class Cliente implements Pessoa {
 
     private final String nome;
     private final String telefone;
@@ -13,6 +13,7 @@ public class Cliente {
         this.email = email;
     }
 
+    @Override
     public String getNome() {
         return nome;
     }
@@ -31,5 +32,10 @@ public class Cliente {
 
     public void setEndereco(Endereco endereco) {
         this.endereco = endereco;
+    }
+
+    @Override
+    public void aceitar(VisitantePessoa visitante) {
+        visitante.visitar(this);
     }
 }
